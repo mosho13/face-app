@@ -1,6 +1,5 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import * as faceapi from 'face-api.js';
 
 @Component({
   selector: 'app-webcam',
