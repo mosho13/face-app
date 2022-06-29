@@ -1,0 +1,6 @@
+{
+	"appId": "io.ionic.starter",
+	"appName": "faceApp",
+	"webDir": "www",
+	"bundledWebRuntime": false
+}
