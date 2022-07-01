@@ -1,5 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+// import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Storage } from '@capacitor/storage';
+
+import { AvailableResult, BiometryType, Credentials, NativeBiometric } from "capacitor-native-biometric";
 
 @Component({
   selector: 'app-webcam',
@@ -28,29 +31,84 @@ export class WebcamComponent implements OnInit {
   videoInput: any;
   referenceImage = new Image;
   image = '';
+  userCredentials = '';
 
   async ngOnInit() {
+    this.setCredentials();
     // await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri('../../assets/models'),
     // await faceapi.nets.faceLandmark68Net.loadFromUri('../../assets/models'),
     // await faceapi.nets.faceRecognitionNet.loadFromUri('../../assets/models'),
     // await faceapi.nets.faceExpressionNet.loadFromUri('../../assets/models'),]).then(() => this.startVideo());
     // debugger;
     // this.captureImage();
+    NativeBiometric.isAvailable().then(
+      (result: AvailableResult) => {
+        alert(result.biometryType);
+        const isAvailable = result.isAvailable;
+        alert(isAvailable);
+        const isFaceId = result.biometryType == BiometryType.FACE_ID;
+        alert(isFaceId);
+
+        if (isAvailable) {
+            // Authenticate using biometrics before logging the user in
+            NativeBiometric.verifyIdentity({
+              reason: "For easy log in",
+              title: "Log in",
+              subtitle: "Maybe add subtitle here?",
+              description: "Maybe a description too?",
+            }).then(
+              (res) => {
+                // Authentication successful
+                // this.login(credentials.username, credentials.password);
+                this.getCredentials();
+                alert('uspesan login');
+                console.log(res);
+              },
+              (error) => {
+                // Failed to authenticate
+                alert('Neuspesan login');
+              }
+            );
+        }
+      },
+      (error) => {
+        // Couldn't check availability
+        alert('Couldnt check availability')
+      }
+    );
     alert('here')
     }
 
-    async captureImage() {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: true,
-        source: CameraSource.Prompt,
-        resultType: CameraResultType.Base64
-      })
-      if (image) {
-        this.image = `data:image/jpeg;base64,${image.base64String}`!;
-        alert(image);
-      }
+    async setCredentials() {
+      let username = 'mille';
+      let password = 'Test1234!'
+      await Storage.set({ key: 'credentials', value: JSON.stringify({username, password})});
     }
+
+    async getCredentials() {
+      await Storage.get({ key: 'credentials' }).then(
+        (value) => {
+          console.log(value);
+          console.log(typeof value);
+        },
+        (error) => {
+          alert('no credentials');
+        }
+      );
+    }
+
+    // async captureImage() {
+    //   const image = await Camera.getPhoto({
+    //     quality: 90,
+    //     allowEditing: true,
+    //     source: CameraSource.Prompt,
+    //     resultType: CameraResultType.Base64
+    //   })
+    //   if (image) {
+    //     this.image = `data:image/jpeg;base64,${image.base64String}`!;
+    //     alert(image);
+    //   }
+    // }
 
     // startVideo() {
     //   this.videoInput = this.video.nativeElement;
