@@ -1,7 +1,8 @@
 {
   "name": "faceApp",
   "integrations": {
-    "capacitor": {}
+    "capacitor": {},
+    "cordova": {}
   },
   "hooks": {
     "build:after": "./attach-source-maps.js"
