@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">mydatapart mobile</string>
-    <string name="title_activity_main">mydatapart mobile</string>
+    <string name="app_name">myDatapart</string>
+    <string name="title_activity_main">myDatapart</string>
     <string name="package_name">com.mydatapart.app</string>
     <string name="custom_url_scheme">com.mydatapart.app</string>
 </resources>

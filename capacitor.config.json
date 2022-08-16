@@ -1,6 +1,6 @@
 {
-	"appId": "io.ionic.starter",
-	"appName": "faceApp",
+	"appId": "com.mydatapart.app",
+	"appName": "myDatapart",
 	"webDir": "www",
 	"bundledWebRuntime": false
 }

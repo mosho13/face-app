@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "479341295556",
+    "project_id": "new-datapart-mobile",
+    "storage_bucket": "new-datapart-mobile.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479341295556:android:0891fb16910e88b6949691",
+        "android_client_info": {
+          "package_name": "com.mydatapart.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "479341295556-793dhqr5vbfg787acinjfo5b7o4acsu8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDaVnBmkU13pIhIwY02R8pJhoZKVDfkw2g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "479341295556-793dhqr5vbfg787acinjfo5b7o4acsu8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
