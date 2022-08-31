@@ -1,9 +1,9 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpClient, HttpResponse, HttpErrorResponse } from '@angular/common/http';
-import { FormControl } from '@angular/forms';
+import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { UsernamePasswordLoginModel } from '../classes/username-password-login-model.class';
 
-import { map, catchError } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import { throwError } from 'rxjs';
 
 import { AvailableResult, BiometryType, NativeBiometric } from "capacitor-native-biometric";
@@ -28,47 +28,60 @@ import {
   toString(): string;
 }
 
-
-
-
 @Component({
   selector: 'app-landing',
   templateUrl: './landing.component.html',
   styleUrls: ['./landing.component.scss']
 })
 export class LandingComponent implements OnInit {
-
-  username = new FormControl('', []);
-  password = new FormControl('', []);
+  isModalOpen = false;
+  isforgotPasswordModalOpen = false;
   permissionToken = '';
+  resetPasswordToken= '';
   forwardData: {
     username: string,
     password: string,
     token: string,
   }
-
+  public resetPasswordForm: FormGroup;
+  public credentialsForm: FormGroup;
+  public forgotPasswordForm: FormGroup;
+  public hide = {
+    hideFirstInput: false,
+    hideSecondInput: false,
+    hideThirdInput: false,
+    hideCredentialsPassword: false
+  };
   constructor(
     private elRef: ElementRef,
     private iab: InAppBrowser,
-    private _http: HttpClient
-    ) { }
+    private _http: HttpClient,
+    ) {
+      this.forgotPasswordForm = new FormGroup({
+        email: new FormControl('', Validators.compose([Validators.required],)),
+      });
+      this.credentialsForm = new FormGroup({
+        username: new FormControl('', Validators.compose([Validators.required])),
+        password: new FormControl('', Validators.compose([Validators.minLength(6),Validators.required]))
+      });
+      this.resetPasswordForm = new FormGroup({
+        oldPassword: new FormControl('', Validators.compose([Validators.minLength(6),Validators.required])),
+        newPassword: new FormControl('', Validators.compose([Validators.minLength(8), Validators.required, this.confirmPassword.bind(this)])),
+        newPasswordConfirm: new FormControl('', Validators.compose([Validators.minLength(8), Validators.required,this.confirmPassword.bind(this)]))
+      });
+    }
 
   userCredentials = '';
   @ViewChild('listenerOut', { static: true }) listenerOut: ElementRef;
   private values: string[] = ['credentials', 'biometric'];
 
   accordionGroupChange = (ev: any) => {
-    // const nativeEl = this.listenerOut.nativeElement;
-    // if (!nativeEl) { return; }
-
     const collapsedItems = this.values.filter(value => value !== ev.detail.value);
     const selectedValue = ev.detail.value;
     if (selectedValue === this.values[1]) {
          Storage.get({ key:'credentials'}).then(
           (validCredentials) => {
-            console.log(validCredentials);
-            console.log(typeof validCredentials);
-            if (validCredentials) {
+            if (validCredentials.value) {
               this.startBiometricauthentification(validCredentials)
             } else {
               this.showPopupDialog();
@@ -79,7 +92,6 @@ export class LandingComponent implements OnInit {
           }
         );
       }
-
     }
 
   async ngOnInit() {
@@ -98,8 +110,7 @@ export class LandingComponent implements OnInit {
     //On success, we should be able to receive notifications
     PushNotifications.addListener('registration',
       (token: Token) => {
-        console.log('Push registration success, token: ' + token.value);
-        alert('Push registration success, token: ' + token.value);
+        // console.log('Push registration success, token: ' + token.value);
         this.setNotificationPermissionToken(token.value);
       }
     );
@@ -107,24 +118,89 @@ export class LandingComponent implements OnInit {
     // Some issue with our setup and push will not work
     PushNotifications.addListener('registrationError',
       (error: any) => {
-        alert('Error on registration: ' + JSON.stringify(error));
       }
     );
 
     // Show us the notification payload if the app is open on our device
     PushNotifications.addListener('pushNotificationReceived',
       (notification: PushNotificationSchema) => {
-        alert('Push received: ' + JSON.stringify(notification));
+        const username = notification.data.username
+        this.onNotificationInboxRedirection(username);
       }
     );
 
     // Method called when tapping on a notification
     PushNotifications.addListener('pushNotificationActionPerformed',
       (notification: ActionPerformed) => {
-        alert('Push action performed: ' + JSON.stringify(notification));
+        const username = notification.notification.data.username
+        this.onNotificationInboxRedirection(username);
       }
     );
   }
+
+  onNotificationInboxRedirection(username: string) {
+    let userCredentials = new UsernamePasswordLoginModel();
+    Storage.get({ key:'credentials'}).then(
+      (validCredentials) => {
+        if (validCredentials.value) {
+          userCredentials = JSON.parse(validCredentials.value);
+          if (username.toLowerCase() === userCredentials.username.toLowerCase()) {
+            this.handleInboxRedirection(userCredentials);
+          }
+        }
+      },
+      (error) => {
+        alert('no credentials');
+      }
+    );
+  }
+
+  fetchNewCredentials() {
+    let credentials:UsernamePasswordLoginModel = {
+      username: '',
+      password: ''
+    };
+    Storage.get({ key:'credentials'}).then(
+      (validCredentials) => {
+        credentials = JSON.parse(validCredentials.value);
+      },
+      (error) => {
+        alert('no credentials');
+      }
+    );
+    return credentials;
+  }
+
+  closePasswordModal() {
+    if (this.isModalOpen) {
+      this.isModalOpen = false;
+    }
+    this.resetPasswordForm.reset();
+  }
+
+  openForgotPasswordModal() {
+    this.isforgotPasswordModalOpen = true;
+  }
+
+  closeforgotPasswordModal() {
+    if (this.isforgotPasswordModalOpen) {
+      this.isforgotPasswordModalOpen = false;
+    }
+  }
+
+  private confirmPassword(): {[key:string]: any} | null {
+    if (this.resetPasswordForm?.controls?.newPassword?.value === this.resetPasswordForm?.controls?.newPasswordConfirm?.value) {
+      this.resetPasswordForm?.controls?.newPassword?.setErrors(null);
+      this.resetPasswordForm?.controls?.newPasswordConfirm?.setErrors(null);
+    }
+    return this.resetPasswordForm?.controls?.newPassword?.value !== this.resetPasswordForm?.controls?.newPasswordConfirm?.value
+    ? { passwordMustMatch: true } : null;
+  }
+
+  public handlePasswordEye(e, hideInput: string): void {
+    e.stopPropagation();
+    this.hide[hideInput] = !this.hide[hideInput];
+}
 
   async showPopupDialog() {
     const alert = document.createElement('ion-alert');
@@ -139,30 +215,23 @@ export class LandingComponent implements OnInit {
   startBiometricauthentification (credentials: any) {
     NativeBiometric.isAvailable().then(
       (result: AvailableResult) => {
-        // alert(result.biometryType);
         const isAvailable = result.isAvailable;
-        // alert(isAvailable);
         const isFaceId = result.biometryType == BiometryType.FACE_ID;
-        // alert(isFaceId);
-
         if (isAvailable) {
           // Authenticate using biometrics before logging the user in
           NativeBiometric.verifyIdentity({
-            reason: "For easy log in",
-            title: "Log in",
-            subtitle: "Maybe add subtitle here?",
-            description: "Maybe a description too?",
+            // reason: "For easy log in",
+            title: "MyDatapart",
+            subtitle: "Service rund um die Uhr",
+            // description: "Maybe a description too?",
           }).then(
             (res) => {
               // Authentication successful
-              // this.login(credentials.username, credentials.password);
               this.handleInboxRedirection(credentials);
-              alert('uspesan login');
-              console.log(res);
             },
             (error) => {
               // Failed to authenticate
-              alert('Neuspesan login');
+              alert('Unsuccessful biometric login attempt');
             }
           );
         }
@@ -184,8 +253,6 @@ export class LandingComponent implements OnInit {
   async getCredentials() {
     await Storage.get({ key: 'credentials' }).then(
       (value) => {
-        console.log(value);
-        console.log(typeof value);
         return value;
       },
       (error) => {
@@ -194,25 +261,9 @@ export class LandingComponent implements OnInit {
     );
   }
 
-  async setAccessToken(model) {
-    await Storage.set({ key: 'ebox-access-token', value: JSON.stringify({ model }) });
-  }
-
   async setNotificationPermissionToken(model) {
     await Storage.set({ key: 'notification-permission-token', value: JSON.stringify({ model }) });
   }
-
-  // async getPermissionTokenold() {
-  //   await Storage.get({ key: 'notification-permission-token' }).then(
-  //     (response) => {
-  //       this.permissionToken = response.value;
-  //       return response.value;
-  //     },
-  //     (error) => {
-  //       alert('no credentials');
-  //     }
-  //   );
-  // }
   async get(key: string): Promise<any> {
     const item = await Storage.get({ key: key });
     const value = JSON.parse(item.value);
@@ -222,49 +273,101 @@ export class LandingComponent implements OnInit {
 
   onLoginSubmit() {
     const model = new UsernamePasswordLoginModel();
-    model.username = this.username.value;
-    model.password = this.password.value;
+    let credentials = this.credentialsForm.value;
+    model.username = credentials.username.replace(/\s/g, "");
+    model.password = credentials.password;
     this.login(model).subscribe(
       (res) => {
-        //
-        console.log(res);
       },
       (err) => {
-       //
+        this.handleLoginError(model, err)
       },
       () => {
-        //this.authenticating = false;
       }
     );
   }
 
   login(user: UsernamePasswordLoginModel, errorMessage = '') {
-    // const url = `${this._config.apiUrl}${this._config.loginRoute}`;
     const url = 'http://datapart-be.edeja.com/v2/users/login';
 
     return this._http.post<any>(url, { "username": user.username,"password": user.password }, { observe: 'response' }).pipe(
-      map((res: HttpResponse<any>) => this.handleLoginSuccess(user, res)),
-      catchError((res: HttpErrorResponse) => this.handleLoginError(res, errorMessage))
+      map((res: HttpResponse<any>) => this.handleLoginSuccess(user, res))
     );
   }
 
-  handleLoginSuccess(user: UsernamePasswordLoginModel, response: HttpResponse<any>) {
-    const accessToken = response.headers.get('X-Auth-Token-Update');
-    this.setAccessToken(accessToken);
-    this.setCredentials(user);
-    this.handleInboxRedirection(user);
+  onConfirmForgotPassword() {
+    this.onforgotPasswordFormSubmit().subscribe(
+      (res) => {
+      },
+      (err) => {
+        if (err.status === 404 && err.error.message === 'Failed to find person')
+        this.forgotPasswordForm.controls.email.setErrors({'cannotFindPerson': true})
+      },
+      () => {
+      }
+    );
   }
 
-  handleLoginError(response: HttpErrorResponse, errorMessage: string) {
-    let error: ApiError;
-    if (response.status === 401) {
-      error = new ApiError(
-        response.url,
-        response.status.toString(),
-        errorMessage || (response.error && response.error.message),
-      );
+  onforgotPasswordFormSubmit() {
+    const url = 'http://datapart-be.edeja.com/v2/users/requestPasswordReset';
+    const userEmail = this.forgotPasswordForm.value.email.replace(/\s/g, "");
+    const forgotPasswordModel = {email: userEmail}
+    return this._http.post<any>(url, forgotPasswordModel, ).pipe(
+      map((res: HttpResponse<any>) => this.closeforgotPasswordModal()));
+  }
+
+  onPasswordFormSubmit() {
+    if (!this.resetPasswordForm.valid) {
+      return false;
+    } else {
+      // console.log(this.resetPasswordForm.value)
     }
-    return throwError(error);
+    const passwordModel = this.resetPasswordForm.value;
+
+    this.resetPasswordOnFirstLogin(passwordModel).subscribe(
+      (res) => {
+      },
+      (err) => {
+        if (err.error.reason === "CHANGE_PASSWORD_OLD_PASSWORD_INCORRECT") {
+          this.resetPasswordForm.controls.oldPassword.setErrors({'oldPasswordIncorect': true})
+        }
+      },
+      () => {
+      }
+    );;
+  }
+
+  resetPasswordOnFirstLogin(resetPasswordModel: {oldPassword: string, newPassword: string, newPasswordConfirm: string}) {
+    const url = 'http://datapart-be.edeja.com/v2/users/changePassword';
+    let firstLoginModel = {username: this.credentialsForm.value.username.replace(/\s/g, ""), password: resetPasswordModel.newPasswordConfirm};
+    let header = { Authorization: `Bearer ${this.resetPasswordToken}`}
+    return this._http.post<any>(url, resetPasswordModel, {headers: header}).pipe(
+      map((res: HttpResponse<any>) => this.handleLoginSuccess(firstLoginModel, res))
+      // catchError((res: HttpErrorResponse) => this.handleLoginError(user, res, errorMessage))
+    );
+  }
+
+  handleLoginSuccess(user: UsernamePasswordLoginModel, response?: HttpResponse<any>) {
+    this.closePasswordModal();
+    this.credentialsForm.reset();
+    this.setCredentials(user).then(() => {
+      this.handleInboxRedirection(user);
+    });
+  }
+
+  handleLoginError(user: UsernamePasswordLoginModel, response: HttpErrorResponse) {
+    // let error: ApiError
+    if (response.status === 401) {
+      if (response.error.message === 'Incorrect Username or Password') {
+       this.credentialsForm.controls.password.setErrors({'incorrectCredentials': true});
+      }
+
+      if (response.error.message === 'First login password reset needed') {
+        this.resetPasswordToken = response.headers.get('X-AUth-Token-Update');
+        this.isModalOpen = true;
+      }
+    }
+    return throwError(response);
 
   }
 
@@ -276,7 +379,6 @@ export class LandingComponent implements OnInit {
     // const secretKey = "abc";
     // const simpleCrypto1 = new SimpleCrypto(secretKey);
     // const encryptedObject = simpleCrypto1.encrypt(validCredentials).toString();
-    // console.log(encryptedObject);
     // const dec = simpleCrypto1.decrypt(encryptedObject);
     // const data = {validCredentials};
     // const strignified = CryptoJS.enc.Utf8.parse(JSON.stringify(data));
@@ -285,17 +387,21 @@ export class LandingComponent implements OnInit {
       let forwardData = Object();
       const token = this.permissionToken
       const data = [validCredentials, token]
-      forwardData.password = validCredentials.value ? validCredentials.value.password : validCredentials.password;
-      forwardData.username = validCredentials.value ? validCredentials.value.username : validCredentials.username;
+      if (validCredentials.value) {
+        const parsedValue = JSON.parse(validCredentials.value);
+        forwardData.username = parsedValue.username
+        forwardData.password = parsedValue.password
+      } else {
+        forwardData.password = validCredentials.password;
+        forwardData.username = validCredentials.username;
+      }
       forwardData.token = this.permissionToken;
       const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(forwardData), 'Edeja $secret$').toString();
       const encoded  = encodeURIComponent(ciphertext.toString());
-      // console.log(ciphertext);
       const bytes  = CryptoJS.AES.decrypt(ciphertext, 'Edeja $secret$').toString(CryptoJS.enc.Utf8);
-      console.log(bytes);
       // const originalText = bytes.toString(CryptoJS.enc.Utf8);
-      // const browser = this.iab.create(`http://ebox-datapart.edeja.com/datapart/handle-inbox-app-redirection?ciphertext=${encoded}`, '_blank', 'location=no');
-      const browser = this.iab.create(`http://10.5.20.159:4000/handle-inbox-app-redirection?ciphertext=${encoded}`, '_blank', 'location=no');
+      const browser = this.iab.create(`http://ebox-datapart.edeja.com/datapart/handle-inbox-app-redirection?ciphertext=${encoded}`, '_blank', 'location=no');
+      // const browser = this.iab.create(`http://10.5.20.159:4000/handle-inbox-app-redirection?ciphertext=${encoded}`, '_blank', 'location=no');
     //   browser.on('loadstart').subscribe(event => {
     //     // browser.executeScript({ code: `localStorage.setItem('ebox-credentials', ${ciphertext})` });
     //     browser.executeScript({code: 'console.log("foo")'});

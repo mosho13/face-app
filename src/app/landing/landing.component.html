@@ -10,22 +10,36 @@
   <ion-accordion-group (ionChange)="accordionGroupChange($event)">
     <ion-accordion value="credentials">
       <ion-item slot="header" color="dark">
-        <ion-label>Login mit E-Mail und Passwort</ion-label>
+        <ion-label>Login mit Nutzername und Passwort</ion-label>
       </ion-item>
       <div class="ion-padding" slot="content">
-        <form (ngSubmit)="onLoginSubmit()">
+        <form [formGroup]="credentialsForm" (ngSubmit)="onLoginSubmit()">
           <ion-item lines="full">
-            <ion-label position="floating">Email Adresse *</ion-label>
-            <ion-input [formControl]="username" type="text" required></ion-input>
+            <ion-label position="floating">Nutzername *</ion-label>
+            <ion-input formControlName="username" type="text" required></ion-input>
+            <span class="error ion-padding" *ngIf="credentialsForm.controls.username.touched && credentialsForm.controls.username.hasError('required')">
+              Pflichtfeld
+            </span>
+            <span class="error ion-padding" *ngIf="credentialsForm.controls.username.touched && credentialsForm.controls.username.hasError('incorrectCredentials')">
+              Falscher Nutzername oder Passwort
+            </span>
           </ion-item>
           <ion-item lines="full">
             <ion-label position="floating">Passwort *</ion-label>
-            <ion-input [formControl]="password" type="password" required></ion-input>
+            <ion-input formControlName="password" [type]="hide.hideCredentialsPassword ? 'text': 'password'" required></ion-input>
+            <ion-icon *ngIf="!hide.hideCredentialsPassword" slot="end" (click)="handlePasswordEye($event,'hideCredentialsPassword')" size="large" name="eye-off-outline"></ion-icon>
+            <ion-icon *ngIf="hide.hideCredentialsPassword" slot="end" (click)="handlePasswordEye($event,'hideCredentialsPassword')" size="large" name="eye-outline"></ion-icon>
+            <span class="error ion-padding" *ngIf="credentialsForm.controls.password.touched && credentialsForm.controls.password.hasError('required')">
+              Pflichtfeld
+            </span>
+            <span class="error ion-padding" *ngIf="credentialsForm.controls.password.touched && credentialsForm.controls.password.hasError('incorrectCredentials')">
+              Falscher Nutzername oder Passwort
+            </span>
           </ion-item>
           <ion-row>
             <ion-col>
-              <ion-button type="submit" expand="block">Sign In</ion-button>
-              <a [routerLink]="['/forgot-password']" class="small-text">Passwort vergessen?</a>
+              <ion-button [disabled]= "credentialsForm.invalid" type="submit" expand="block">Anmelden</ion-button>
+              <a (click)="openForgotPasswordModal()" class="small-text">Passwort vergessen?</a>
             </ion-col>
           </ion-row>
         </form>
@@ -39,5 +53,106 @@
       </div>
     </ion-accordion>
   </ion-accordion-group>
+  <ion-modal [isOpen]="isforgotPasswordModalOpen">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title slot="start">Passwort zurücksetzen</ion-title>
+          <ion-icon slot="end" (click)="closeforgotPasswordModal()" size="large" name="close-circle-outline"></ion-icon>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <form [formGroup]="forgotPasswordForm" (ngSubmit)="onConfirmForgotPassword()" novalidate>
+          <h6 slot="start">An welche Nutzername-Adresse soll das Passwort-Rücksetz-Nutzername gesendet werden?.</h6>
+          <ion-item>
+            <ion-label position="stacked">Nutzername *<ion-text color="danger"></ion-text></ion-label>
+            <ion-input required type="text" formControlName="email" placeholder="Nutzername *"></ion-input>
+            <span class="error ion-padding" *ngIf="forgotPasswordForm.controls.email.touched && forgotPasswordForm.controls.email.hasError('required')">
+              Pflichtfeld.
+            </span>
+            <span class="error ion-padding"
+            *ngIf="forgotPasswordForm.controls.email.hasError('cannotFindPerson') && !forgotPasswordForm.controls.email.hasError('required')">
+            Passwortrücksetzen fehlgeschlagen
+          </span>
+          </ion-item>
+          <ion-toolbar>
+            <ion-buttons slot="end">
+              <ion-button type="submit" [strong]="true">Senden</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+  <ion-modal [isOpen]="isModalOpen">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title slot="start">Passwort zurücksetzen</ion-title>
+          <ion-icon slot="end" (click)="closePasswordModal()" size="large" name="close-circle-outline"></ion-icon>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <form [formGroup]="resetPasswordForm" (ngSubmit)="onPasswordFormSubmit()" novalidate>
+          <ion-item>
+            <ion-label position="stacked">Aktuelles Passwort</ion-label>
+            <ion-input [type]="hide.hideFirstInput ? 'text': 'password'" placeholder="Aktuelles Passwort" formControlName="oldPassword"></ion-input>
+            <ion-icon *ngIf="!hide.hideFirstInput" slot="end" (click)="handlePasswordEye($event,'hideFirstInput')" size="large" name="eye-off-outline"></ion-icon>
+            <ion-icon *ngIf="hide.hideFirstInput" slot="end" (click)="handlePasswordEye($event,'hideFirstInput')" size="large" name="eye-outline"></ion-icon>
+            <ng-container *ngIf="resetPasswordForm.controls.oldPassword.touched && resetPasswordForm.controls.oldPassword.errors">
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.oldPassword.hasError('required')">
+                Pflichtfeld.
+              </span>
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.oldPassword.hasError('oldPasswordIncorect') && !resetPasswordForm.controls.oldPassword.hasError('required')">
+                Falsches Passwort.
+              </span>
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.oldPassword.hasError('minlength') && !resetPasswordForm.controls.oldPassword.hasError('required')">
+                Die minimale Länge ist 6.
+              </span>
+            </ng-container>
+          </ion-item>
+          <ion-item>
+            <ion-label position="stacked">Neues Passwort</ion-label>
+            <ion-input [type]="hide.hideSecondInput ? 'text': 'password'" placeholder="Neues Passwort" formControlName="newPassword"></ion-input>
+            <ion-icon *ngIf="!hide.hideSecondInput" slot="end" (click)="handlePasswordEye($event,'hideSecondInput')" size="large" name="eye-off-outline"></ion-icon>
+            <ion-icon *ngIf="hide.hideSecondInput" slot="end" (click)="handlePasswordEye($event,'hideSecondInput')" size="large" name="eye-outline"></ion-icon>
+            <ng-container *ngIf="resetPasswordForm.controls.newPassword.touched && resetPasswordForm.controls.newPassword.errors">
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.newPassword.hasError('required')">
+                Pflichtfeld.
+              </span>
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.newPassword.hasError('minlength') && !resetPasswordForm.controls.newPassword.hasError('required')">
+                Die minimale Länge ist 8.
+              </span>
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.newPassword.hasError('passwordMustMatch')">
+                Die Passwörter müssen übereinstimmen.
+              </span>
+            </ng-container>
+          </ion-item>
+          <ion-item>
+            <ion-label position="stacked">Bestätige neues passwort</ion-label>
+            <ion-input [type]="hide.hideThirdInput ? 'text': 'password'" placeholder="Bestätige neues passwort" formControlName="newPasswordConfirm"></ion-input>
+            <ion-icon *ngIf="!hide.hideThirdInput" slot="end" (click)="handlePasswordEye($event,'hideThirdInput')" size="large" name="eye-off-outline"></ion-icon>
+            <ion-icon *ngIf="hide.hideThirdInput" slot="end" (click)="handlePasswordEye($event,'hideThirdInput')" size="large" name="eye-outline"></ion-icon>
+            <ng-container *ngIf="resetPasswordForm.controls.newPasswordConfirm.touched && resetPasswordForm.controls.newPasswordConfirm.errors">
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.newPasswordConfirm.hasError('required')">
+                Pflichtfeld.
+              </span>
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.newPasswordConfirm.hasError('passwordMustMatch')">
+                Die Passwörter müssen übereinstimmen.
+              </span>
+              <span class="error ion-padding" *ngIf="resetPasswordForm.controls.newPasswordConfirm.hasError('minlength') && !resetPasswordForm.controls.newPasswordConfirm.hasError('required')">
+                Die minimale Länge ist 8.
+              </span>
+            </ng-container>
+          </ion-item>
+          <ion-toolbar>
+            <ion-buttons slot="end">
+              <ion-button [disabled]="resetPasswordForm.invalid" type="submit" [strong]="true">Bestätigen</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
   <p #listenerOut></p>
 </ion-content>
